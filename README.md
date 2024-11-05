@@ -1,4 +1,4 @@
-# SHA1 Algorithm Implementation in C
+# SHA1 Algorithm Implementation in C for files
 
 ## Usage
 
