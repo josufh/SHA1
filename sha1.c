@@ -14,6 +14,7 @@ typedef struct {
 } SHA1_CTX;
 
 __declspec(dllexport) void sha1_file(const char *filename, unsigned char output[SHA1_BLOCK_SIZE]);
+__declspec(dllexport) void sha1_buffer(const unsigned char *buffer, const size_t buffer_size, unsigned char output[SHA1_BLOCK_SIZE]);
 
 #define ROL(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
 
@@ -117,5 +118,12 @@ void sha1_file(const char *filename, unsigned char output[SHA1_BLOCK_SIZE]) {
     }
     fclose(file);
 
+    SHA1Final(output, &context);
+}
+
+void sha1_buffer(const unsigned char *buffer, const size_t buffer_size, unsigned char output[SHA1_BLOCK_SIZE]) {
+    SHA1_CTX context;
+    SHA1Init(&context);
+    SHA1Update(&context, buffer, (uint32_t)buffer_size);
     SHA1Final(output, &context);
 }
