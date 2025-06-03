@@ -2,7 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#if defined(_WIN32)
 #include <windows.h>
+#define DLL_EXPORT __declspec(dllexport)
+#else
+#define DLL_EXPORT
+#endif
 
 // SHA1 20-byte hash
 #define SHA1_BLOCK_SIZE 20
@@ -13,8 +18,8 @@ typedef struct {
     unsigned char buffer[64];
 } SHA1_CTX;
 
-__declspec(dllexport) void sha1_file(const char *filename, unsigned char output[SHA1_BLOCK_SIZE]);
-__declspec(dllexport) void sha1_buffer(const unsigned char *buffer, const size_t buffer_size, unsigned char output[SHA1_BLOCK_SIZE]);
+DLL_EXPORT void sha1_file(const char *filename, unsigned char output[SHA1_BLOCK_SIZE]);
+DLL_EXPORT void sha1_buffer(const unsigned char *buffer, const size_t buffer_size, unsigned char output[SHA1_BLOCK_SIZE]);
 
 #define ROL(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
 
