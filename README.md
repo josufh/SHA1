@@ -27,7 +27,7 @@ int main() {
   sha1_file("path/to/example.file", file_hash);
   
   // To hash a buffer
-  SHA1BuifferFunc sha1_buffer = (SHA1BufferFunc)GetProcAddress(hDll, "sha1_buffer");
+  SHA1BufferFunc sha1_buffer = (SHA1BufferFunc)GetProcAddress(hDll, "sha1_buffer");
   unsigned char buffer_hash[SHA1_BLOCK_SIZE];
   unsigned char *buffer;
   size_t buffer_size;
