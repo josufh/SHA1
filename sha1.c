@@ -6,11 +6,16 @@
 #include <windows.h>
 #define DLL_EXPORT __declspec(dllexport)
 #else
+#include <sys/stat.h>
 #define DLL_EXPORT
 #endif
 
 // SHA1 20-byte hash
 #define SHA1_BLOCK_SIZE 20
+
+#define F0(b,c,d) (((b) & (c)) | (~(b) & (d)))
+#define F1(b,c,d) ((b) ^ (c) ^ (d))
+#define F2(b,c,d) (((b) & (c)) | ((b) & (d)) | ((c) & (d)))
 
 typedef struct {
     uint32_t state[5];
@@ -48,16 +53,23 @@ void SHA1Transform(uint32_t state[5], const unsigned char buffer[64]) {
 
     a = state[0]; b = state[1]; c = state[2]; d = state[3]; e = state[4];
 
-    for (t = 0; t < 80; t++) {
-        if (t < 20)
-            temp = (ROL(a, 5) + ((b & c) | ((~b) & d)) + e + w[t] + 0x5A827999);
-        else if (t < 40)
-            temp = (ROL(a, 5) + (b ^ c ^ d) + e + w[t] + 0x6ED9EBA1);
-        else if (t < 60)
-            temp = (ROL(a, 5) + ((b & c) | (b & d) | (c & d)) + e + w[t] + 0x8F1BBCDC);
-        else
-            temp = (ROL(a, 5) + (b ^ c ^ d) + e + w[t] + 0xCA62C1D6);
-        
+    for (t = 0; t < 20; ++t) {
+        temp = ROL(a, 5) + F0(b, c, d) + e + w[t] + 0x5A827999;
+        e = d; d = c; c = ROL(b, 30); b = a; a = temp;
+    }
+
+    for (; t < 40; ++t) {
+        temp = ROL(a, 5) + F1(b, c, d) + e + w[t] + 0x6ED9EBA1;
+        e = d; d = c; c = ROL(b, 30); b = a; a = temp;
+    }
+
+    for (; t < 60; ++t) {
+        temp = ROL(a, 5) + F2(b, c, d) + e + w[t] + 0x8F1BBCDC;
+        e = d; d = c; c = ROL(b, 30); b = a; a = temp;
+    }
+
+    for (; t < 80; ++t) {
+        temp = ROL(a, 5) + F1(b, c, d) + e + w[t] + 0xCA62C1D6;
         e = d; d = c; c = ROL(b, 30); b = a; a = temp;
     }
 
@@ -113,15 +125,47 @@ void sha1_file(const char *filename, unsigned char output[SHA1_BLOCK_SIZE]) {
         return;
     }
 
-    SHA1_CTX context;
-    unsigned char buffer[1024];
-    size_t len;
+    setvbuf(file, NULL, _IOFBF, 262144); // 256 KiB
 
-    SHA1Init(&context);
-    while ((len = fread(buffer, 1, sizeof(buffer), file)) > 0) {
-        SHA1Update(&context, buffer, (uint32_t)len);
+    size_t chunk = 4096;
+#if !defined(_WIN32)
+    struct stat st;
+    if (fstat(fileno(file), &st) == 0 && st.st_blksize > 0)
+        chunk = (size_t)st.st_blksize;
+#else
+    chunk = 65536;
+#endif
+    if (chunk < 4096) chunk = 4096;
+    if (chunk > 65536) chunk = 65536;
+    
+    unsigned char *buf = (unsigned char*)malloc(chunk);
+    if (!buf) {
+        perror("Malloc error");
+        fclose(file);
+        return;
     }
+    
+    SHA1_CTX context;
+    SHA1Init(&context);
+
+    for (;;) {
+        size_t n = fread(buf, 1, chunk, file);
+        if (n > 0) {
+            SHA1Update(&context, buf, (uint32_t)n);
+        }
+        if (n < chunk) {
+            if (feof(file)) break;
+            if (ferror(file)) {
+                perror("Read error");
+                fclose(file);
+                free(buf);
+                return;
+            }
+        }
+    }
+
     fclose(file);
+    free(buf);
 
     SHA1Final(output, &context);
 }
